@@ -13,6 +13,7 @@ from core.messagebuilder import MessageBuilder
 from core.modelhelper import get_token_limit
 from approaches.prompt_templates import SYSTEM_MESSAGE_CHAT
 from text import nonewlines
+from approaches.statemachine import StateTypes, States, FirstState
 
 use_RAG = False
 
@@ -79,6 +80,53 @@ If you cannot generate a search query, return just the number 0.
         self.chatgpt_token_limit = get_token_limit(chatgpt_model)
 
     async def run_until_final_call(
+        self,
+        session_state: Any,
+        history: list[dict[str, str]],
+        overrides: dict[str, Any],
+        auth_claims: dict[str, Any],
+        should_stream: bool = False,
+    ) -> tuple:
+        if session_state.machineState is None:
+            session_state.machineState = FirstState
+        
+        state = States[session_state.machineState]
+        if session_state is None:
+            # TODO: Error
+            return ({"data_points": ["error"], "thoughts": "error"}, {})
+        
+        match state.type:
+            case StateTypes.NoOp:
+                pass
+            case StateTypes.OpenAI:
+                # TODO: Treat going out of OpenAI state and all relevant logic
+                return run_until_final_call_using_openai(history, overrides, auth_claims, should_stream)
+            case StateTypes.Input:
+                if session_state.vars is None:
+                    session_state.vars = {}
+                session_state.vars[state.targetInput] = history[-1]["content"]
+            case _:
+                return ({"data_points": ["error"], "thoughts": "error"}, {})
+
+        match States[state.nextState].type:
+            case StateTypes.NoOp:
+                pass
+            case StateTypes.OpenAI:
+                # TODO: Treat going out of OpenAI state and all relevant logic
+                return run_until_final_call_using_openai(history, overrides, auth_claims, should_stream)
+            case StateTypes.Input:
+                msg_to_display = States[state.nextState].out
+            case _:
+                return ({"data_points": ["error"], "thoughts": "error"}, {})
+
+        extra_info = {
+            "data_points": [],
+            "thoughts": f"Searched for:<br><br><br>Conversations:<br>"
+            + msg_to_display.replace("\n", "<br>"),
+        }
+        return (extra_info, {})
+
+    async def run_until_final_call_using_openai(
         self,
         history: list[dict[str, str]],
         overrides: dict[str, Any],
@@ -244,7 +292,7 @@ If you cannot generate a search query, return just the number 0.
         session_state: Any = None,
     ) -> dict[str, Any]:
         extra_info, chat_coroutine = await self.run_until_final_call(
-            history, overrides, auth_claims, should_stream=False
+            session_state, history, overrides, auth_claims, should_stream=False
         )
         chat_resp = dict(await chat_coroutine)
         chat_resp["choices"][0]["context"] = extra_info
@@ -259,7 +307,7 @@ If you cannot generate a search query, return just the number 0.
         session_state: Any = None,
     ) -> AsyncGenerator[dict, None]:
         extra_info, chat_coroutine = await self.run_until_final_call(
-            history, overrides, auth_claims, should_stream=True
+            session_state, history, overrides, auth_claims, should_stream=True
         )
         yield {
             "choices": [
@@ -284,6 +332,8 @@ If you cannot generate a search query, return just the number 0.
     ) -> Union[dict[str, Any], AsyncGenerator[dict[str, Any], None]]:
         overrides = context.get("overrides", {})
         auth_claims = context.get("auth_claims", {})
+        if session_state is None:
+            session_state = {}
         if stream is False:
             # Workaround for: https://github.com/openai/openai-python/issues/371
             async with aiohttp.ClientSession() as s:
