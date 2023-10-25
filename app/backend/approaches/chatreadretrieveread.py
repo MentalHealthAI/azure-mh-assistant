@@ -87,35 +87,30 @@ If you cannot generate a search query, return just the number 0.
         auth_claims: dict[str, Any],
         should_stream: bool = False,
     ) -> tuple:
-        if session_state.machineState is None:
-            session_state.machineState = FirstState
+        state = States[session_state["machineState"]]
         
-        state = States[session_state.machineState]
-        if session_state is None:
-            # TODO: Error
-            return ({"data_points": ["error"], "thoughts": "error"}, {})
-        
-        match state.type:
+        match state["type"]:
             case StateTypes.NoOp:
                 pass
             case StateTypes.OpenAI:
                 # TODO: Treat going out of OpenAI state and all relevant logic
                 return run_until_final_call_using_openai(history, overrides, auth_claims, should_stream)
             case StateTypes.Input:
-                if session_state.vars is None:
-                    session_state.vars = {}
-                session_state.vars[state.targetInput] = history[-1]["content"]
+                vars = session_state["vars"]
+                if vars is None:
+                    vars = {}
+                vars[state["targetInput"]] = history[-1]["content"]
             case _:
                 return ({"data_points": ["error"], "thoughts": "error"}, {})
 
-        match States[state.nextState].type:
+        match States[state["nextState"]]["type"]:
             case StateTypes.NoOp:
                 pass
             case StateTypes.OpenAI:
                 # TODO: Treat going out of OpenAI state and all relevant logic
                 return run_until_final_call_using_openai(history, overrides, auth_claims, should_stream)
             case StateTypes.Input:
-                msg_to_display = States[state.nextState].out
+                msg_to_display = States[state["nextState"]]["out"]
             case _:
                 return ({"data_points": ["error"], "thoughts": "error"}, {})
 
@@ -124,7 +119,8 @@ If you cannot generate a search query, return just the number 0.
             "thoughts": f"Searched for:<br><br><br>Conversations:<br>"
             + msg_to_display.replace("\n", "<br>"),
         }
-        return (extra_info, {})
+        chat_coroutine = None
+        return (extra_info, chat_coroutine)
 
     async def run_until_final_call_using_openai(
         self,
@@ -333,7 +329,7 @@ If you cannot generate a search query, return just the number 0.
         overrides = context.get("overrides", {})
         auth_claims = context.get("auth_claims", {})
         if session_state is None:
-            session_state = {}
+            session_state = { "machineState": FirstState, "vars": {} }
         if stream is False:
             # Workaround for: https://github.com/openai/openai-python/issues/371
             async with aiohttp.ClientSession() as s:
