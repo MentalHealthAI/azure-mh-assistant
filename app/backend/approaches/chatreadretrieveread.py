@@ -9,6 +9,7 @@ from approaches.appresources import AppResources
 from approaches.approach import Approach
 from approaches.requestcontext import RequestContext
 from approaches.statemachine import States, FirstState
+from approaches.statetypes.statetypeopenai import StateTypeOpenAI
 
 class ChatReadRetrieveReadApproach(Approach):
     def __init__(self, app_resources: AppResources):
@@ -63,7 +64,7 @@ class ChatReadRetrieveReadApproach(Approach):
         yield {
             "choices": [
                 {
-                    "delta": {"role": self.ASSISTANT},
+                    "delta": {"role": StateTypeOpenAI.ASSISTANT},
                     "context": extra_info,
                     "session_state": session_state,
                     "finish_reason": None,

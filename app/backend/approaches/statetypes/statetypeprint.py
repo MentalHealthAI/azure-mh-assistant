@@ -19,4 +19,4 @@ class StateTypePrint(StateType):
             + self.out.replace("\n", "<br>").replace("\n", "<br>"),
         }
 
-        request_context.setResponse(extra_info, chat_coroutine)
+        request_context.setResponse(extra_info, None)

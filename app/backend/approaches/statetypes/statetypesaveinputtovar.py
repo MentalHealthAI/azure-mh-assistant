@@ -16,4 +16,4 @@ class StateTypeSaveInputToVar(StateType):
         if vars is None:
             vars = {}
             session_state["vars"] = vars
-        vars[self.var] = history[-1]["content"]
+        vars[self.var] = request_context.history[-1]["content"]
