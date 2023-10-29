@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, AsyncGenerator
 
 from approaches.appresources import AppResources
 from approaches.statetypes.statetype import StateType
@@ -10,13 +10,16 @@ class StateTypePrint(StateType):
         self.next_state = next_state
         self.out = out
     
-    async def run(self, app_resources: AppResources, session_state: Any, request_context: RequestContext):
+    async def run(self, app_resources: AppResources, session_state: Any, request_context: RequestContext) -> AsyncGenerator[dict[str, Any], None]:
         session_state["machineState"] = self.next_state
 
+        msg_to_display = self.out.replace("\n", "<br>")
         extra_info = {
             "data_points": [],
             "thoughts": f"Searched for:<br><br><br>Conversations:<br>"
-            + self.out.replace("\n", "<br>").replace("\n", "<br>"),
+            + msg_to_display,
         }
 
-        request_context.setResponse(extra_info, None)
+        request_context.setResponseExtraInfo(extra_info)
+
+        yield msg_to_display

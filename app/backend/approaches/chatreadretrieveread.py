@@ -18,12 +18,12 @@ class ChatReadRetrieveReadApproach(Approach):
     async def run_until_final_call(
         self,
         session_state: Any,
+        request_context: RequestContext,
         history: list[dict[str, str]],
         overrides: dict[str, Any],
         auth_claims: dict[str, Any],
         should_stream: bool = False,
-    ) -> tuple:
-        request_context = RequestContext(history, overrides, auth_claims, should_stream)
+    ) -> AsyncGenerator[dict, None]:
         isWaitForUserInputBeforeState = False
         while (not isWaitForUserInputBeforeState):
             if not ("machineState" in session_state):
@@ -32,40 +32,43 @@ class ChatReadRetrieveReadApproach(Approach):
                 raise Exception("Unexpected state " + session_state["machineState"])
             state = States[session_state["machineState"]]
             isWaitForUserInputBeforeState = state.isWaitForUserInputBeforeState
-            await state.run(self.app_resources, session_state, request_context)
-        
-        return (request_context.extra_info, request_context.chat_coroutine)
+            chat_coroutine = state.run(self.app_resources, session_state, request_context)
+            async for event in await chat_coroutine:
+                if not (event is None):
+                    yield event
 
     async def run_without_streaming(
         self,
+        session_state: Any,
+        request_context: RequestContext,
         history: list[dict[str, str]],
         overrides: dict[str, Any],
         auth_claims: dict[str, Any],
-        session_state: Any = None,
     ) -> dict[str, Any]:
-        extra_info, chat_coroutine = await self.run_until_final_call(
-            session_state, history, overrides, auth_claims, should_stream=False
+        chat_coroutine = await self.run_until_final_call(
+            session_state, request_context, history, overrides, auth_claims, should_stream=False
         )
         chat_resp = dict(await chat_coroutine)
-        chat_resp["choices"][0]["context"] = extra_info
+        chat_resp["choices"][0]["context"] = request_context.extra_info
         chat_resp["choices"][0]["session_state"] = session_state
         return chat_resp
 
     async def run_with_streaming(
         self,
+        session_state: Any,
+        request_context: RequestContext,
         history: list[dict[str, str]],
         overrides: dict[str, Any],
         auth_claims: dict[str, Any],
-        session_state: Any = None,
     ) -> AsyncGenerator[dict, None]:
-        extra_info, chat_coroutine = await self.run_until_final_call(
-            session_state, history, overrides, auth_claims, should_stream=True
+        chat_coroutine = await self.run_until_final_call(
+            session_state, request_context, history, overrides, auth_claims, should_stream=True
         )
         yield {
             "choices": [
                 {
                     "delta": {"role": StateTypeOpenAI.ASSISTANT},
-                    "context": extra_info,
+                    "context": request_context.extra_info,
                     "session_state": session_state,
                     "finish_reason": None,
                     "index": 0,
@@ -84,13 +87,14 @@ class ChatReadRetrieveReadApproach(Approach):
     ) -> Union[dict[str, Any], AsyncGenerator[dict[str, Any], None]]:
         overrides = context.get("overrides", {})
         auth_claims = context.get("auth_claims", {})
+        request_context = RequestContext(messages, overrides, auth_claims, stream)
         if session_state is None:
             session_state = { "machineState": FirstState, "vars": {} }
         if stream is False:
             # Workaround for: https://github.com/openai/openai-python/issues/371
             async with aiohttp.ClientSession() as s:
                 openai.aiosession.set(s)
-                response = await self.run_without_streaming(messages, overrides, auth_claims, session_state)
+                response = await self.run_without_streaming(session_state, request_context, messages, overrides, auth_claims)
             return response
         else:
-            return self.run_with_streaming(messages, overrides, auth_claims, session_state)
+            return self.run_with_streaming(session_state, request_context, messages, overrides, auth_claims)

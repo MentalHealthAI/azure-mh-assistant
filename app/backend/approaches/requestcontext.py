@@ -16,7 +16,7 @@ class RequestContext:
         self.extra_info = None
         self.chat_coroutine = None
     
-    def setResponse(self, extra_info: dict[str, str], chat_coroutine: openai.ChatCompletion):
+    def setResponseExtraInfo(self, extra_info: dict[str, str], chat_coroutine: openai.ChatCompletion):
         if not (self.chat_coroutine is None):
             raise Exception("Unexpected two results")
         self.extra_info = extra_info

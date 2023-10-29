@@ -57,7 +57,7 @@ If you cannot generate a search query, return just the number 0.
         super(StateTypeOpenAI, self).__init__(isWaitForUserInputBeforeState = True)
         self.system_prompt = system_prompt
 
-    async def run(self, app_resources: AppResources, session_state: Any, request_context: RequestContext) -> bool:
+    async def run(self, app_resources: AppResources, session_state: Any, request_context: RequestContext) -> AsyncGenerator[dict[str, Any], None]:
         has_text = overrides.get("retrieval_mode") in ["text", "hybrid", None]
         has_vector = overrides.get("retrieval_mode") in ["vectors", "hybrid", None]
         use_semantic_captions = True if overrides.get("semantic_captions") and has_text else False
@@ -208,7 +208,8 @@ If you cannot generate a search query, return just the number 0.
             stream=should_stream,
         )
 
-        request_context.setResponse(extra_info, chat_coroutine)
+        request_context.setResponseExtraInfo(extra_info)
+        return chat_coroutine
 
     def get_messages_from_history(
         self,

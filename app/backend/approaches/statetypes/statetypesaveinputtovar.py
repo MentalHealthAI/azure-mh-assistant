@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, AsyncGenerator
 
 from approaches.appresources import AppResources
 from approaches.statetypes.statetype import StateType
@@ -10,7 +10,7 @@ class StateTypeSaveInputToVar(StateType):
         self.next_state = next_state
         self.var = var
     
-    async def run(self, app_resources: AppResources, session_state: Any, request_context: RequestContext) -> bool:
+    async def run(self, app_resources: AppResources, session_state: Any, request_context: RequestContext) -> AsyncGenerator[dict[str, Any], None]:
         session_state["machineState"] = self.next_state
         vars = session_state["vars"]
         if vars is None:
