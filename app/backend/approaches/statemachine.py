@@ -21,12 +21,10 @@ States[StateAskForName] = StateTypePrint(
 States[StateWaitingForName] = StateTypeSaveInputToVar(next_state = StateAskForFeeling, var = "patientName")
 
 States[StateAskForFeeling] = StateTypePrint(
-    next_state = StateWaitingForFeeling,
+    next_state = StateEmpathyToFeelings,
     out = """שלום {patientName}, ברוך הבא לתהליך ייצוב מיידי, שמטרתו להביא לרגיעה ולהקלה במצוקה פסיכולוגית. תהליך זה עזר לאנשים רבים בעולם. התהליך ייקח כ10-20 דקות, במהלכן אקח אותך דרך השלבים החשובים לעבור תהליך הרגעה ועיבוד. בכל שלב אתה יכול לכתוב לי אם יש לך שאלות או דבר מה שתרצה לשתף אותי בו
 "אשמח לדעת ממש בקצרה מה מטריד אותך, ?אני רק צריך לשמוע תיאור קצר מאוד. אתה לא חייב לספר לי? """
 )
-
-States[StateWaitingForFeeling] = StateTypeSaveInputToVar(next_state = StateEmpathyToFeelings, var = "patientFeelings")
 
 States[StateEmpathyToFeelings] = StateTypeOpenAI(
     system_prompt = "תן תגובה ממנה הנבדק יבין שהבנת מה הוא אמר, תתייחס באופן אימפטי מאוד בקצרה אל תהיה נועז בתגובה אל תפרש אל תשייך לנבדק רגשות תחושות או מצבים שלא דיווח עליהם, השתדל להיות קשוב ומינימליסטי ולהצמד למה שאמר אבל לא לחזור בצורה טלגרפית",

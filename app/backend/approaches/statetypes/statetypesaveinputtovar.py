@@ -3,6 +3,7 @@ from typing import Any, AsyncGenerator
 from approaches.appresources import AppResources
 from approaches.statetypes.statetype import StateType
 from approaches.requestcontext import RequestContext
+from approaches.utils import Utils
 
 class StateTypeSaveInputToVar(StateType):
     def __init__(self, next_state, var):
@@ -12,9 +13,11 @@ class StateTypeSaveInputToVar(StateType):
     
     async def run(self, app_resources: AppResources, session_state: Any, request_context: RequestContext) -> AsyncGenerator[dict[str, Any], None]:
         session_state["machineState"] = self.next_state
+        
         vars = session_state["vars"]
         if vars is None:
             vars = {}
             session_state["vars"] = vars
         vars[self.var] = request_context.history[-1]["content"]
-        yield
+        
+        return None

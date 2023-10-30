@@ -16,6 +16,12 @@ class StateTypePrint(StateType):
         session_state["machineState"] = self.next_state
 
         msg_to_display = self.out.replace("\n", "<br>")
+
+        vars = session_state["vars"]
+        if not (vars is None):
+            for var in vars:
+                msg_to_display = msg_to_display.replace("{" + var + "}", vars[var])
+
         extra_info = {
             "data_points": [],
             "thoughts": f"Searched for:<br><br><br>Conversations:<br>"

@@ -5,6 +5,7 @@ import logging
 from typing import Any, AsyncGenerator, Union
 
 import aiohttp
+from inspect import iscoroutine
 
 from approaches.appresources import AppResources
 from approaches.approach import Approach
@@ -26,17 +27,28 @@ class ChatReadRetrieveReadApproach(Approach):
         auth_claims: dict[str, Any],
         should_stream: bool = False,
     ) -> AsyncGenerator[dict, None]:
+        if not ("machineState" in session_state):
+            raise Exception("No machineState in session_state")
+        state_id = session_state["machineState"]
+        if not (state_id in States):
+            raise Exception("Unexpected state " + state_id)
+        state = States[state_id]
+
         event_generators = []
         is_wait_for_user_input_before_state = False
         while (not is_wait_for_user_input_before_state):
-            if not ("machineState" in session_state):
-                raise Exception("No machineState in session_state")
-            if not (session_state["machineState"] in States):
-                raise Exception("Unexpected state " + session_state["machineState"])
-            state = States[session_state["machineState"]]
+            chat_coroutine = state.run(self.app_resources, session_state, request_context)
+            if not (chat_coroutine is None):
+                if iscoroutine(chat_coroutine):
+                    chat_coroutine = await chat_coroutine
+            if not (chat_coroutine is None):
+                event_generators.append(chat_coroutine)
+
+            state_id = session_state["machineState"]
+            if not (state_id in States):
+                raise Exception("Unexpected state " + state_id)
+            state = States[state_id]
             is_wait_for_user_input_before_state = state.is_wait_for_user_input_before_state
-            chat_coroutine = await state.run(self.app_resources, session_state, request_context)
-            event_generators.append(chat_coroutine)
 
         # Return after aggregation, so request_context.extra_info has already been set
         return Utils.merge_generators(event_generators)

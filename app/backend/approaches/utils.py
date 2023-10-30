@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any, AsyncGenerator, Optional, TypeVar
 
 from core.authentication import AuthenticationHelper
@@ -18,7 +19,8 @@ class Utils:
     async def merge_generators(generator_list):
         for generator in generator_list:
             async for item in generator:
-                yield item
+                if not (item is None):
+                    yield item
     
     async def single_item_generator(item: T) -> AsyncGenerator[T, None]:
         yield item
