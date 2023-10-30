@@ -32,8 +32,9 @@ class ChatReadRetrieveReadApproach(Approach):
                 raise Exception("Unexpected state " + session_state["machineState"])
             state = States[session_state["machineState"]]
             isWaitForUserInputBeforeState = state.isWaitForUserInputBeforeState
+            print(session_state["machineState"])
             chat_coroutine = state.run(self.app_resources, session_state, request_context)
-            async for event in await chat_coroutine:
+            async for event in chat_coroutine:
                 if not (event is None):
                     yield event
 
@@ -61,7 +62,7 @@ class ChatReadRetrieveReadApproach(Approach):
         overrides: dict[str, Any],
         auth_claims: dict[str, Any],
     ) -> AsyncGenerator[dict, None]:
-        chat_coroutine = await self.run_until_final_call(
+        chat_coroutine = self.run_until_final_call(
             session_state, request_context, history, overrides, auth_claims, should_stream=True
         )
         yield {
@@ -77,10 +78,8 @@ class ChatReadRetrieveReadApproach(Approach):
             "object": "chat.completion.chunk",
         }
 
-        async for event in await chat_coroutine:
-            # "2023-07-01-preview" API version has a bug where first response has empty choices
-            if event["choices"]:
-                yield event
+        async for event in chat_coroutine:
+            yield event
 
     async def run(
         self, messages: list[dict], stream: bool = False, session_state: Any = None, context: dict[str, Any] = {}

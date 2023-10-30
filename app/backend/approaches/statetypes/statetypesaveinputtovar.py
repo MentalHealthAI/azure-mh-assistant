@@ -17,3 +17,4 @@ class StateTypeSaveInputToVar(StateType):
             vars = {}
             session_state["vars"] = vars
         vars[self.var] = request_context.history[-1]["content"]
+        yield

@@ -10,6 +10,7 @@ from azure.search.documents.models import QueryType
 
 from approaches.appresources import AppResources
 from approaches.approach import Approach
+from approaches.utils import Utils
 from core.messagebuilder import MessageBuilder
 from core.modelhelper import get_token_limit
 from text import nonewlines
@@ -58,13 +59,13 @@ If you cannot generate a search query, return just the number 0.
         self.system_prompt = system_prompt
 
     async def run(self, app_resources: AppResources, session_state: Any, request_context: RequestContext) -> AsyncGenerator[dict[str, Any], None]:
-        has_text = overrides.get("retrieval_mode") in ["text", "hybrid", None]
-        has_vector = overrides.get("retrieval_mode") in ["vectors", "hybrid", None]
-        use_semantic_captions = True if overrides.get("semantic_captions") and has_text else False
-        top = overrides.get("top", 3)
-        filter = app_resources.build_filter(overrides, auth_claims)
+        has_text = request_context.overrides.get("retrieval_mode") in ["text", "hybrid", None]
+        has_vector = request_context.overrides.get("retrieval_mode") in ["vectors", "hybrid", None]
+        use_semantic_captions = True if request_context.overrides.get("semantic_captions") and has_text else False
+        top = request_context.overrides.get("top", 3)
+        filter = Utils.build_filter(request_context.overrides, request_context.auth_claims)
 
-        original_user_query = history[-1]["content"]
+        original_user_query = request_context.history[-1]["content"]
         user_query_request = "Generate search query for: " + original_user_query
 
         functions = [
@@ -86,12 +87,12 @@ If you cannot generate a search query, return just the number 0.
 
         # STEP 1: Generate an optimized keyword search query based on the chat history and the last question
         messages = self.get_messages_from_history(
-            system_prompt=app_resources.query_prompt_template,
+            system_prompt=self.query_prompt_template,
             model_id=app_resources.chatgpt_model,
-            history=history,
+            history=request_context.history,
             user_content=user_query_request,
             max_tokens=app_resources.chatgpt_token_limit - len(user_query_request),
-            few_shots=app_resources.query_prompt_few_shots,
+            few_shots=self.query_prompt_few_shots,
         )
 
         chatgpt_args = {"deployment_id": app_resources.chatgpt_deployment} if app_resources.openai_host == "azure" else {}
@@ -114,7 +115,7 @@ If you cannot generate a search query, return just the number 0.
         results = []
         if os.environ["SHOULD_RAG"] == 'True':
 
-        # If retrieval mode includes vectors, compute an embedding for the query
+            # If retrieval mode includes vectors, compute an embedding for the query
             if has_vector:
                 embedding_args = {"deployment_id": app_resources.embedding_deployment} if app_resources.openai_host == "azure" else {}
                 embedding = await openai.Embedding.acreate(**embedding_args, model=app_resources.embedding_model, input=query_text)
@@ -127,7 +128,7 @@ If you cannot generate a search query, return just the number 0.
                 query_text = None
 
             # Use semantic L2 reranker if requested and if retrieval mode is text or hybrid (vectors + text)
-            if overrides.get("semantic_ranker") and has_text:
+            if request_context.overrides.get("semantic_ranker") and has_text:
                 r = await app_resources.search_client.search(
                     query_text,
                     filter=filter,
@@ -162,13 +163,13 @@ If you cannot generate a search query, return just the number 0.
 
             
         follow_up_questions_prompt = (
-            app_resources.follow_up_questions_prompt_content if overrides.get("suggest_followup_questions") else ""
+            app_resources.follow_up_questions_prompt_content if request_context.overrides.get("suggest_followup_questions") else ""
         )
 
         # STEP 3: Generate a contextual and content specific answer using the search results and chat history
 
         # Allow client to replace the entire prompt, or to inject into the exiting prompt using >>>
-        prompt_override = overrides.get("prompt_template")
+        prompt_override = request_context.overrides.get("prompt_template")
         if prompt_override is None:
             system_message = self.system_prompt.format(
                 injected_prompt="", follow_up_questions_prompt=follow_up_questions_prompt
@@ -185,7 +186,7 @@ If you cannot generate a search query, return just the number 0.
         messages = self.get_messages_from_history(
             system_prompt=system_message,
             model_id=app_resources.chatgpt_model,
-            history=history,
+            history=request_context.history,
             # Model does not handle lengthy system messages well. Moving sources to latest user conversation to solve follow up questions prompt.
             user_content=original_user_query + "\n\nSources:\n" + content,
             max_tokens=messages_token_limit,
@@ -202,14 +203,18 @@ If you cannot generate a search query, return just the number 0.
             **chatgpt_args,
             model=self.chatgpt_model,
             messages=messages,
-            temperature=overrides.get("temperature") or 0.7,
+            temperature=request_context.overrides.get("temperature") or 0.7,
             max_tokens=response_token_limit,
             n=1,
-            stream=should_stream,
+            stream=request_context.should_stream,
         )
 
         request_context.setResponseExtraInfo(extra_info)
-        return chat_coroutine
+
+        async for event in chat_coroutine:
+            # "2023-07-01-preview" API version has a bug where first response has empty choices
+            if event["choices"]:
+                yield event
 
     def get_messages_from_history(
         self,

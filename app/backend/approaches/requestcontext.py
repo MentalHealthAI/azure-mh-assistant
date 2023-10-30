@@ -1,5 +1,4 @@
 from typing import Any
-import openai
 
 class RequestContext:
     def __init__(
@@ -14,10 +13,8 @@ class RequestContext:
         self.auth_claims = auth_claims
         self.should_stream = should_stream
         self.extra_info = None
-        self.chat_coroutine = None
     
-    def setResponseExtraInfo(self, extra_info: dict[str, str], chat_coroutine: openai.ChatCompletion):
-        if not (self.chat_coroutine is None):
+    def setResponseExtraInfo(self, extra_info: dict[str, str]):
+        if not (self.extra_info is None):
             raise Exception("Unexpected two results")
         self.extra_info = extra_info
-        self.chat_coroutine = chat_coroutine
