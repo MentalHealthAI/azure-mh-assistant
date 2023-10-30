@@ -6,7 +6,7 @@ from approaches.requestcontext import RequestContext
 
 class StateTypePrint(StateType):
     def __init__(self, next_state, out):
-        super(StateTypePrint, self).__init__(isWaitForUserInputBeforeState = False)
+        super(StateTypePrint, self).__init__(is_wait_for_user_input_before_state = False)
         self.next_state = next_state
         self.out = out
     
@@ -20,6 +20,6 @@ class StateTypePrint(StateType):
             + msg_to_display,
         }
 
-        request_context.setResponseExtraInfo(extra_info)
+        request_context.set_response_extra_info(extra_info)
 
         yield msg_to_display

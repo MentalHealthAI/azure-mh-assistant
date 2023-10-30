@@ -6,7 +6,7 @@ from approaches.requestcontext import RequestContext
 
 class StateTypeSaveInputToVar(StateType):
     def __init__(self, next_state, var):
-        super(StateTypeSaveInputToVar, self).__init__(isWaitForUserInputBeforeState = True)
+        super(StateTypeSaveInputToVar, self).__init__(is_wait_for_user_input_before_state = True)
         self.next_state = next_state
         self.var = var
     

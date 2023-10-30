@@ -12,3 +12,8 @@ class Utils:
         if security_filter:
             filters.append(security_filter)
         return None if len(filters) == 0 else " and ".join(filters)
+
+    async def merge_generators(generator_list):
+        for generator in generator_list:
+            async for item in generator:
+                yield item

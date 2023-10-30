@@ -1,3 +1,4 @@
+import asyncio
 import os
 import json
 import logging
@@ -10,6 +11,7 @@ from approaches.approach import Approach
 from approaches.requestcontext import RequestContext
 from approaches.statemachine import States, FirstState
 from approaches.statetypes.statetypeopenai import StateTypeOpenAI
+from approaches.utils import Utils
 
 class ChatReadRetrieveReadApproach(Approach):
     def __init__(self, app_resources: AppResources):
@@ -24,19 +26,20 @@ class ChatReadRetrieveReadApproach(Approach):
         auth_claims: dict[str, Any],
         should_stream: bool = False,
     ) -> AsyncGenerator[dict, None]:
-        isWaitForUserInputBeforeState = False
-        while (not isWaitForUserInputBeforeState):
+        event_generators = []
+        is_wait_for_user_input_before_state = False
+        while (not is_wait_for_user_input_before_state):
             if not ("machineState" in session_state):
                 raise Exception("No machineState in session_state")
             if not (session_state["machineState"] in States):
                 raise Exception("Unexpected state " + session_state["machineState"])
             state = States[session_state["machineState"]]
-            isWaitForUserInputBeforeState = state.isWaitForUserInputBeforeState
-            print(session_state["machineState"])
-            chat_coroutine = state.run(self.app_resources, session_state, request_context)
-            async for event in chat_coroutine:
-                if not (event is None):
-                    yield event
+            is_wait_for_user_input_before_state = state.is_wait_for_user_input_before_state
+            chat_coroutine = await state.run(self.app_resources, session_state, request_context)
+            event_generators.append(chat_coroutine)
+
+        # Return after aggregation, so request_context.extra_info has already been set
+        return Utils.merge_generators(event_generators)
 
     async def run_without_streaming(
         self,
@@ -62,9 +65,10 @@ class ChatReadRetrieveReadApproach(Approach):
         overrides: dict[str, Any],
         auth_claims: dict[str, Any],
     ) -> AsyncGenerator[dict, None]:
-        chat_coroutine = self.run_until_final_call(
+        chat_coroutine = await self.run_until_final_call(
             session_state, request_context, history, overrides, auth_claims, should_stream=True
         )
+
         yield {
             "choices": [
                 {

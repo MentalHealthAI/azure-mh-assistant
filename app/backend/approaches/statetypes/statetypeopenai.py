@@ -55,7 +55,7 @@ If you cannot generate a search query, return just the number 0.
     ]
 
     def __init__(self, system_prompt):
-        super(StateTypeOpenAI, self).__init__(isWaitForUserInputBeforeState = True)
+        super(StateTypeOpenAI, self).__init__(is_wait_for_user_input_before_state = True)
         self.system_prompt = system_prompt
 
     async def run(self, app_resources: AppResources, session_state: Any, request_context: RequestContext) -> AsyncGenerator[dict[str, Any], None]:
@@ -113,7 +113,7 @@ If you cannot generate a search query, return just the number 0.
 
         content = ""
         results = []
-        if os.environ["SHOULD_RAG"] == 'True':
+        if False: #os.environ["SHOULD_RAG"] == 'True':
 
             # If retrieval mode includes vectors, compute an embedding for the query
             if has_vector:
@@ -199,9 +199,9 @@ If you cannot generate a search query, return just the number 0.
             + msg_to_display.replace("\n", "<br>"),
         }
 
-        chat_coroutine = openai.ChatCompletion.acreate(
+        chat_coroutine = await openai.ChatCompletion.acreate(
             **chatgpt_args,
-            model=self.chatgpt_model,
+            model=app_resources.chatgpt_model,
             messages=messages,
             temperature=request_context.overrides.get("temperature") or 0.7,
             max_tokens=response_token_limit,
@@ -209,12 +209,8 @@ If you cannot generate a search query, return just the number 0.
             stream=request_context.should_stream,
         )
 
-        request_context.setResponseExtraInfo(extra_info)
-
-        async for event in chat_coroutine:
-            # "2023-07-01-preview" API version has a bug where first response has empty choices
-            if event["choices"]:
-                yield event
+        request_context.set_response_extra_info(extra_info)
+        return self.workaround_first_empty_choices(chat_coroutine)
 
     def get_messages_from_history(
         self,
@@ -258,3 +254,9 @@ If you cannot generate a search query, return just the number 0.
             if query_text.strip() != self.NO_RESPONSE:
                 return query_text
         return user_query
+
+    async def workaround_first_empty_choices(self, chat_coroutine):
+        async for event in chat_coroutine:
+            # "2023-07-01-preview" API version has a bug where first response has empty choices
+            if event["choices"]:
+                yield event

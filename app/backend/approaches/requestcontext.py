@@ -14,7 +14,10 @@ class RequestContext:
         self.should_stream = should_stream
         self.extra_info = None
     
-    def setResponseExtraInfo(self, extra_info: dict[str, str]):
-        if not (self.extra_info is None):
+    def set_response_extra_info(self, extra_info: dict[str, str]):
+        if self.has_extra_info():
             raise Exception("Unexpected two results")
         self.extra_info = extra_info
+
+    def has_extra_info(self):
+        return not (self.extra_info is None)
