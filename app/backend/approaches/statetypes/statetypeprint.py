@@ -1,8 +1,10 @@
 from typing import Any, AsyncGenerator
+import asyncio
 
 from approaches.appresources import AppResources
 from approaches.statetypes.statetype import StateType
 from approaches.requestcontext import RequestContext
+from approaches.utils import Utils
 
 class StateTypePrint(StateType):
     def __init__(self, next_state, out):
@@ -22,4 +24,4 @@ class StateTypePrint(StateType):
 
         request_context.set_response_extra_info(extra_info)
 
-        yield msg_to_display
+        return Utils.single_item_generator({ "choices": [{ "delta": { "content": msg_to_display } }] })

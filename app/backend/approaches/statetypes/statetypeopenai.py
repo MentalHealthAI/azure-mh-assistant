@@ -113,7 +113,7 @@ If you cannot generate a search query, return just the number 0.
 
         content = ""
         results = []
-        if False: #os.environ["SHOULD_RAG"] == 'True':
+        if os.environ["SHOULD_RAG"] == 'True':
 
             # If retrieval mode includes vectors, compute an embedding for the query
             if has_vector:

@@ -1,6 +1,8 @@
-from typing import Any, Optional
+from typing import Any, AsyncGenerator, Optional, TypeVar
 
 from core.authentication import AuthenticationHelper
+
+T = TypeVar('T')
 
 class Utils:
     def build_filter(overrides: dict[str, Any], auth_claims: dict[str, Any]) -> Optional[str]:
@@ -17,3 +19,6 @@ class Utils:
         for generator in generator_list:
             async for item in generator:
                 yield item
+    
+    async def single_item_generator(item: T) -> AsyncGenerator[T, None]:
+        yield item
