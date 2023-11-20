@@ -27,5 +27,4 @@ resource redis 'Microsoft.Cache/Redis@2020-06-01' = {
 }
 
 // The output of the redis cache connection string
-//output connectionString string = 'redis://${redis.listKeys().primaryKey}@${redis.properties.hostName}:${redis.properties.sslPort}'
 output name string = redis.name
