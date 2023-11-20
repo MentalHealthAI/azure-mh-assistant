@@ -287,7 +287,7 @@ module storage 'core/storage/storage-account.bicep' = {
 
 module redis 'core/cache/redis.bicep' = {
   name: 'redis'
-  scope: redisResourceGroup
+  scope: resourceGroup
   params: {
     name: !empty(redisName) ? redisName : '${abbrs.redisCache}${resourceToken}'
     location: location

@@ -70,7 +70,9 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
       {
         SCM_DO_BUILD_DURING_DEPLOYMENT: string(scmDoBuildDuringDeployment)
         ENABLE_ORYX_BUILD: string(enableOryxBuild)
-        AZURE_REDIS_CONNECTION_STRING: 'redis://${redis.listKeys().primaryKey}@${redis.properties.hostName}:${redis.properties.sslPort}'
+        AZURE_REDIS_PASSWORD: redis.listKeys().primaryKey
+        AZURE_REDIS_HOST: redis.properties.hostName
+        AZURE_REDIS_SSL_PORT: redis.properties.sslPort
       },
       runtimeName == 'python' ? { PYTHON_ENABLE_GUNICORN_MULTIWORKERS: 'true'} : {},
       !empty(applicationInsightsName) ? { APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsights.properties.ConnectionString } : {},

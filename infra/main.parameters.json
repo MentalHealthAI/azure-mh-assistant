@@ -56,6 +56,9 @@
     "storageAccountName": {
       "value": "${AZURE_STORAGE_ACCOUNT}"
     },
+    "redisName": {
+      "value": "${AZURE_REDIS_NAME}"
+    },
     "storageResourceGroupName": {
       "value": "${AZURE_STORAGE_RESOURCE_GROUP}"
     },
