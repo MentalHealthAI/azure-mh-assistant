@@ -6,6 +6,7 @@ param tags object = {}
 param applicationInsightsName string = ''
 param appServicePlanId string
 param keyVaultName string = ''
+param redisName string
 param managedIdentity bool = !empty(keyVaultName)
 
 // Runtime Properties
@@ -69,6 +70,7 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
       {
         SCM_DO_BUILD_DURING_DEPLOYMENT: string(scmDoBuildDuringDeployment)
         ENABLE_ORYX_BUILD: string(enableOryxBuild)
+        AZURE_REDIS_CONNECTION_STRING: 'redis://${redis.listKeys().primaryKey}@${redis.properties.hostName}:${redis.properties.sslPort}'
       },
       runtimeName == 'python' ? { PYTHON_ENABLE_GUNICORN_MULTIWORKERS: 'true'} : {},
       !empty(applicationInsightsName) ? { APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsights.properties.ConnectionString } : {},
@@ -95,6 +97,10 @@ resource keyVault 'Microsoft.KeyVault/vaults@2022-07-01' existing = if (!(empty(
 
 resource applicationInsights 'Microsoft.Insights/components@2020-02-02' existing = if (!empty(applicationInsightsName)) {
   name: applicationInsightsName
+}
+
+resource redis 'Microsoft.Cache/Redis@2020-06-01' existing = {
+  name: redisName
 }
 
 output identityPrincipalId string = managedIdentity ? appService.identity.principalId : ''

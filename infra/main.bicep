@@ -30,12 +30,16 @@ param storageResourceGroupName string = ''
 param storageResourceGroupLocation string = location
 param storageContainerName string = 'content'
 param storageSkuName string // Set in main.parameters.json
+param redisResourceGroupName string = ''
 
 @allowed(['azure', 'openai'])
 param openAiHost string // Set in main.parameters.json
 
 param openAiServiceName string = ''
 param openAiResourceGroupName string = ''
+
+param redisName string = ''
+
 @description('Location for the OpenAI resource group')
 @allowed(['canadaeast', 'eastus', 'eastus2', 'francecentral', 'switzerlandnorth', 'uksouth', 'japaneast', 'northcentralus'])
 @metadata({
@@ -107,6 +111,10 @@ resource storageResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' ex
   name: !empty(storageResourceGroupName) ? storageResourceGroupName : resourceGroup.name
 }
 
+resource redisResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' existing = if (!empty(redisResourceGroupName)) {
+  name: !empty(redisResourceGroupName) ? redisResourceGroupName : resourceGroup.name
+}
+
 // Monitor application with Azure Monitor
 module monitoring './core/monitor/monitoring.bicep' = if (useApplicationInsights) {
   name: 'monitoring'
@@ -149,6 +157,7 @@ module backend 'core/host/appservice.bicep' = {
     scmDoBuildDuringDeployment: true
     managedIdentity: true
     allowedOrigins: [allowedOrigin]
+    redisName: redis.outputs.name
     appSettings: {
       AZURE_STORAGE_ACCOUNT: storage.outputs.name
       AZURE_STORAGE_CONTAINER: storageContainerName
@@ -178,6 +187,9 @@ module backend 'core/host/appservice.bicep' = {
       ALLOWED_ORIGIN: allowedOrigin
     }
   }
+  dependsOn:[
+    redis
+  ]
 }
 
 module openAi 'core/ai/cognitiveservices.bicep' = if (openAiHost == 'azure') {
@@ -271,6 +283,22 @@ module storage 'core/storage/storage-account.bicep' = {
       }
     ]
   }
+}
+
+module redis 'core/cache/redis.bicep' = {
+  name: 'redis'
+  scope: redisResourceGroup
+  params: {
+    name: !empty(redisName) ? redisName : '${abbrs.redisCache}${resourceToken}'
+    location: location
+    tags: tags
+    sku: {
+      name: 'Basic'
+      family: 'C'
+      capacity: 1
+    }
+    enableNonSslPort: false
+}
 }
 
 // USER ROLES
