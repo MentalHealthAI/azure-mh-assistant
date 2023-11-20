@@ -30,7 +30,6 @@ param storageResourceGroupName string = ''
 param storageResourceGroupLocation string = location
 param storageContainerName string = 'content'
 param storageSkuName string // Set in main.parameters.json
-param redisResourceGroupName string = ''
 
 @allowed(['azure', 'openai'])
 param openAiHost string // Set in main.parameters.json
@@ -109,10 +108,6 @@ resource searchServiceResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-
 
 resource storageResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' existing = if (!empty(storageResourceGroupName)) {
   name: !empty(storageResourceGroupName) ? storageResourceGroupName : resourceGroup.name
-}
-
-resource redisResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' existing = if (!empty(redisResourceGroupName)) {
-  name: !empty(redisResourceGroupName) ? redisResourceGroupName : resourceGroup.name
 }
 
 // Monitor application with Azure Monitor
