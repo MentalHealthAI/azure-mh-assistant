@@ -35,6 +35,7 @@ const Chat = () => {
 
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [isWritingWords, setIsWritingWords] = useState<boolean>(false);
+    const [isPlayingVideo, setIsPlayingVideo] = useState<boolean>(false);
     const [isStreaming, setIsStreaming] = useState<boolean>(false);
     const [error, setError] = useState<unknown>();
 
@@ -55,12 +56,9 @@ const Chat = () => {
             return new Promise(resolve => {
                 setTimeout(() => {
                     answer += newContent;
-                    const latestResponse: ChatAppResponse = { ...askResponse,
-                        choices: [{ ...askResponse.choices[0],
-                                    message: { content: answer,
-                                        role: askResponse.choices[0].message.role
-                                    } }
-                                ]
+                    const latestResponse: ChatAppResponse = {
+                        ...askResponse,
+                        choices: [{ ...askResponse.choices[0], message: { content: answer, role: askResponse.choices[0].message.role } }]
                     };
                     setStreamedAnswers([...answers, [question, latestResponse]]);
                     resolve(null);
@@ -69,7 +67,7 @@ const Chat = () => {
         };
 
         async function* asyncWordGenerator(str: string, delay: number) {
-            const words = str.split(' ');
+            const words = str.split(" ");
             for (const word of words) {
                 // Wait for the delay, then yield the word
                 await new Promise(resolve => setTimeout(resolve, delay));
@@ -87,7 +85,7 @@ const Chat = () => {
                     setIsLoading(false);
                     setIsWritingWords(true);
                     const sentence = event["choices"][0]["delta"]["content"];
-                    const delay = 33
+                    const delay = 33;
                     let isFirst = true;
                     for await (let word of asyncWordGenerator(sentence, delay)) {
                         if (!isFirst) {
@@ -102,12 +100,9 @@ const Chat = () => {
         } finally {
             setIsStreaming(false);
         }
-        const fullResponse: ChatAppResponse = { ...askResponse,
-            choices: [{ ...askResponse.choices[0],
-                        message: { content: answer,
-                            role: askResponse.choices[0].message.role
-                        } }
-                    ]
+        const fullResponse: ChatAppResponse = {
+            ...askResponse,
+            choices: [{ ...askResponse.choices[0], message: { content: answer, role: askResponse.choices[0].message.role } }]
         };
         return fullResponse;
     };
@@ -125,10 +120,10 @@ const Chat = () => {
         const token = client ? await getToken(client) : undefined;
 
         try {
-            const messages: ResponseMessage[] = answers.flatMap(a => ([
+            const messages: ResponseMessage[] = answers.flatMap(a => [
                 { content: a[0], role: "user" },
                 { content: a[1].choices[0].message.content, role: "assistant" }
-            ]));
+            ]);
 
             const request: ChatAppRequest = {
                 messages: [...messages, { content: question, role: "user" }],
@@ -250,6 +245,13 @@ const Chat = () => {
         setSelectedAnswer(index);
     };
 
+    const setIsPlayingVideoIntercept = (isPlayingVideo_: boolean) => {
+        if (isPlayingVideo && !isPlayingVideo_) {
+            makeApiRequest("הצפיה הסתיימה");
+        }
+        setIsPlayingVideo(isPlayingVideo_);
+    };
+
     return (
         <div className={styles.container}>
             <div className={styles.commandsContainer}>
@@ -277,10 +279,12 @@ const Chat = () => {
                                                 key={index}
                                                 answer={streamedAnswer[1]}
                                                 isSelected={false}
+                                                isVideoEnabled={index == streamedAnswers.length - 1}
                                                 onCitationClicked={c => onShowCitation(c, index)}
                                                 onThoughtProcessClicked={() => onToggleTab(AnalysisPanelTabs.ThoughtProcessTab, index)}
                                                 onSupportingContentClicked={() => onToggleTab(AnalysisPanelTabs.SupportingContentTab, index)}
                                                 onFollowupQuestionClicked={q => makeApiRequest(q)}
+                                                setIsPlayingVideo={setIsPlayingVideoIntercept}
                                                 showFollowupQuestions={useSuggestFollowupQuestions && answers.length - 1 === index}
                                             />
                                         </div>
@@ -296,10 +300,12 @@ const Chat = () => {
                                                 key={index}
                                                 answer={answer[1]}
                                                 isSelected={selectedAnswer === index && activeAnalysisPanelTab !== undefined}
+                                                isVideoEnabled={index == streamedAnswers.length - 1}
                                                 onCitationClicked={c => onShowCitation(c, index)}
                                                 onThoughtProcessClicked={() => onToggleTab(AnalysisPanelTabs.ThoughtProcessTab, index)}
                                                 onSupportingContentClicked={() => onToggleTab(AnalysisPanelTabs.SupportingContentTab, index)}
                                                 onFollowupQuestionClicked={q => makeApiRequest(q)}
+                                                setIsPlayingVideo={setIsPlayingVideoIntercept}
                                                 showFollowupQuestions={useSuggestFollowupQuestions && answers.length - 1 === index}
                                             />
                                         </div>
@@ -329,7 +335,7 @@ const Chat = () => {
                         <QuestionInput
                             clearOnSend
                             placeholder="כיצד אני יכול לעזור לך?"
-                            disabled={isLoading || isWritingWords}
+                            disabled={isLoading || isWritingWords || isPlayingVideo}
                             onSend={question => makeApiRequest(question)}
                         />
                     </div>

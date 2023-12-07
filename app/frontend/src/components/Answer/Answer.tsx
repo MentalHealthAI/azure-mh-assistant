@@ -9,16 +9,18 @@ import { ChatAppResponse, getCitationFilePath } from "../../api";
 import { parseAnswerToHtml } from "./AnswerParser";
 import { AnswerIcon } from "./AnswerIcon";
 
-import { transformYotubeUrlsToEmbdedded } from "./AnswerVideoEmbedder";
+import { transformVideoUrlsToEmbdedded } from "./AnswerVideoEmbedder";
 
 interface Props {
     answer: ChatAppResponse;
     isSelected?: boolean;
     isStreaming: boolean;
+    isVideoEnabled?: boolean;
     onCitationClicked: (filePath: string) => void;
     onThoughtProcessClicked: () => void;
     onSupportingContentClicked: () => void;
     onFollowupQuestionClicked?: (question: string) => void;
+    setIsPlayingVideo?: (isPlayingVideo: boolean) => void;
     showFollowupQuestions?: boolean;
 }
 
@@ -26,10 +28,12 @@ export const Answer = ({
     answer,
     isSelected,
     isStreaming,
+    isVideoEnabled,
     onCitationClicked,
     onThoughtProcessClicked,
     onSupportingContentClicked,
     onFollowupQuestionClicked,
+    setIsPlayingVideo,
     showFollowupQuestions
 }: Props) => {
     const messageContent = answer.choices[0].message.content;
@@ -44,22 +48,22 @@ export const Answer = ({
             // Select the parent div using a class name that contains 'chatMessageGpt'
             const parentDiv = document.querySelector('[class*="chatMessageGpt"]');
             if (parentDiv instanceof HTMLElement) {
-                const marginOfMessageBubbleFromBothEndsInPx = 32
+                const marginOfMessageBubbleFromBothEndsInPx = 32;
                 const additionalBufferToAvoidScrollBar = 16;
                 setIframeWidth(parentDiv.offsetWidth - marginOfMessageBubbleFromBothEndsInPx - additionalBufferToAvoidScrollBar);
             }
         };
-        
+
         updateWidth();
 
         // Set up the resize event listener
-        window.addEventListener('resize', updateWidth);
+        window.addEventListener("resize", updateWidth);
 
         // Clean up the event listener
-        return () => window.removeEventListener('resize', updateWidth);
+        return () => window.removeEventListener("resize", updateWidth);
     }, []); // Empty dependency array ensures this runs once on mount and then on every resize
 
-    const sanitizedAnswerHtmlWithEmbddedVideos = transformYotubeUrlsToEmbdedded(sanitizedAnswerHtml, iframeWidth)
+    const sanitizedAnswerHtmlWithEmbddedVideos = transformVideoUrlsToEmbdedded(sanitizedAnswerHtml, iframeWidth, isVideoEnabled, setIsPlayingVideo);
 
     return (
         <Stack className={`${styles.answerContainer} ${isSelected && styles.selected}`} verticalAlign="space-between">

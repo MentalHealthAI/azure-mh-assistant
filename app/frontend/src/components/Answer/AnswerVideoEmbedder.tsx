@@ -1,28 +1,58 @@
 import styles from "./Answer.module.css";
+import Vimeo from "@vimeo/player";
 
-export const transformYotubeUrlsToEmbdedded = (str: string, iframeWidth: number): string => {
-  const urls = extractVimeoUrls(str);
-  const urlTransformations: Record<string, string> = {};
-  urls.forEach((url) => {
-      const id = extractVimeoId(url);
-      const height = iframeWidth * 9 / 16 // keep 16 x 9 ratio.
-      urlTransformations[url] = `<div class="${styles.videoContainer}" style="width: ${iframeWidth}px; height: ${height}px" ><iframe src="https://player.vimeo.com/video/${id}" frameborder="0" allowfullscreen></iframe></div>`;
-  });
-  let transformedStr = str;
-  for (const [url, transformation] of Object.entries(urlTransformations)) {
-    transformedStr = transformedStr.replace(url, transformation);
-  }
-  return transformedStr;
+export const transformVideoUrlsToEmbdedded = (
+    str: string,
+    iframeWidth: number,
+    isVideoEnabled?: boolean,
+    setIsPlayingVideo?: (isPlayingVideo: boolean) => void
+): string => {
+    const url = extractVimeoUrl(str);
+    if (!url) {
+        return str;
+    } else if (!isVideoEnabled) {
+        return str.replace(url, "");
+    }
+
+    const id = extractVimeoId(url);
+    const height = (iframeWidth * 9) / 16; // keep 16 x 9 ratio.
+    setIsPlayingVideo?.(true);
+
+    // Make sure that playerContainer div is rendered before creating vimeo player
+    setTimeout(() => {
+        const playerContainer = document.getElementById("playerContainer");
+        if (playerContainer) {
+            playerContainer.innerHTML = "";
+            setTimeout(() => playerContainer.scrollIntoView(), 1000); // Make sure the player is rendered before focusing
+        }
+
+        const player = new Vimeo("playerContainer", {
+            url: url,
+            autoplay: true,
+            controls: false,
+            dnt: true,
+            height: height,
+            title: false,
+            width: iframeWidth
+        });
+
+        player.on("ended", () => {
+            setIsPlayingVideo?.(false);
+        });
+    }, 1000);
+
+    return str.replace(url, `<div id=playerContainer class="${styles.videoContainer}">טוען וידאו...</div>`);
 };
 
-const extractVimeoUrls = (str: string): Set<string> => {
+const extractVimeoUrl = (str: string): string | undefined => {
     const vimeoUrlRegex = /https:\/\/player\.vimeo\.com\/video\/(\d+)/g;
     const urls = new Set<string>();
     let match;
-    while ((match = vimeoUrlRegex.exec(str)) !== null) {
-        urls.add(match[0]);
+    if ((match = vimeoUrlRegex.exec(str)) !== null) {
+        return match[0];
     }
-    return urls;
+
+    return undefined;
 };
 
 const extractVimeoId = (url: string): string => {
@@ -33,4 +63,4 @@ const extractVimeoId = (url: string): string => {
     }
 
     return "";
-}
+};

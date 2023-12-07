@@ -25,7 +25,7 @@ async def start_isp(request_context: RequestContext):
     }
     return request_context.write_chat_message(prefixDict[isp_path] + """
 אציג לך כעת וידאו שילמד אותך לעשות תרגיל שיכול לעזור לך להשיג יותר שליטה ורוגע. {watch} בו. {_try} לא לעצום עיניים, לשמור על קשר עין עם {therapist} {and_act} לפי ההנחיות בוידאו.
-צפה: {video}""".format(
+{video}""".format(
         watch = "צפה" if is_patient_male else "צפי",
         _try = "נסה" if is_patient_male else "נסי",
         therapist = "המטפל" if is_bot_male else "המטפלת",
