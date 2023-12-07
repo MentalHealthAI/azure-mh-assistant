@@ -21,10 +21,13 @@ export const transformVideoUrlsToEmbdedded = (
     // Make sure that playerContainer div is rendered before creating vimeo player
     setTimeout(() => {
         const playerContainer = document.getElementById("playerContainer");
-        if (playerContainer) {
-            playerContainer.innerHTML = "";
-            setTimeout(() => playerContainer.scrollIntoView(), 1000); // Make sure the player is rendered before focusing
+        if (!playerContainer) {
+            setIsPlayingVideo?.(false);
+            return;
         }
+
+        playerContainer.innerHTML = "";
+        setTimeout(() => playerContainer.scrollIntoView(), 1000); // Make sure the player is rendered before focusing
 
         const player = new Vimeo("playerContainer", {
             url: url,
