@@ -65,8 +65,15 @@ export const Answer = ({
 
     const sanitizedAnswerHtmlWithEmbddedVideos = transformVideoUrlsToEmbdedded(sanitizedAnswerHtml, iframeWidth, isVideoEnabled, setIsPlayingVideo);
 
+    const styleByRole =
+        answer.choices[0].message.role == "assistant"
+            ? styles.answerContainer
+            : answer.choices[0].message.role == "explanationText"
+            ? styles.explanationTextContainer
+            : null;
+
     return (
-        <Stack className={`${styles.answerContainer} ${isSelected && styles.selected}`} verticalAlign="space-between">
+        <Stack className={`${styleByRole} ${isSelected && styles.selected}`} verticalAlign="space-between">
             <Stack.Item>
                 <Stack horizontal horizontalAlign="space-between">
                     <AnswerIcon />
