@@ -266,7 +266,7 @@ def create_app():
     app = Quart(__name__)
     app.register_blueprint(bp)
     app.asgi_app = OpenTelemetryMiddleware(app.asgi_app)  # type: ignore[method-assign]
-    track_event("Test event", {})
+    track_event("Session Started", {})
     if allowed_origin := os.getenv("ALLOWED_ORIGIN"):
         app.logger.info("CORS enabled for %s", allowed_origin)
         cors(app, allow_origin=allowed_origin, allow_methods=["GET", "POST"])
