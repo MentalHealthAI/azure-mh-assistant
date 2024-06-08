@@ -10,7 +10,7 @@ from approaches.localization.strings import get_string_by_key
 from approaches.openai import OpenAI
 from approaches.requestcontext import RequestContext
 from approaches.utils import Utils
-from approaches.flow.shared_states import ChatInputNotWait, VariableStringsId
+from approaches.flow.shared_states import ChatInputNotWait, VariableSessionChatId, VariableStringsId
 
 class ChatReadRetrieveReadApproach(Approach):
     def __init__(self, app_resources: AppResources):
@@ -35,11 +35,14 @@ class ChatReadRetrieveReadApproach(Approach):
         chat_input = ChatInputNotWait
         out_final = None
         while (chat_input == ChatInputNotWait):
-            track_event("ChatReadRetrieveReadApproach", {"state_id": state_id, "history": history[-1]["content"], "session_user_id": request_context.session_user_id, "client_ip": request_context.client_ip, "vars": session_state["vars"]})
             if not (state.action_before is None):
                 coroutine_action_before = state.action_before(request_context, history[-1]["content"])
                 if iscoroutine(coroutine_action_before):
                     await coroutine_action_before
+            event = {"state_id": state_id, "history": history[-1]["content"], "session_user_id": request_context.session_user_id, "client_ip": request_context.client_ip, "session_chat_id": request_context.get_var(VariableSessionChatId)}
+            if not (state.add_log_props is None):
+                state.add_log_props(request_context, event)
+            track_event("ChatReadRetrieveReadApproach", event)
             ac = None
             for conditioned_ac in state.conditioned_actions[0]:
                 if conditioned_ac.condition is None or conditioned_ac.condition(request_context, history[-1]["content"]):
@@ -50,9 +53,9 @@ class ChatReadRetrieveReadApproach(Approach):
 
             output = None
             if not (ac.custom_action is None):
-                ac = ac.custom_action(request_context)
+                ac = ac.custom_action(request_context, history[-1]["content"])
                 if iscoroutine(ac):
-                    await ac
+                    ac = await ac
             if not (ac.output is None):
                 strings_id = request_context.get_var(VariableStringsId)
                 output = get_string_by_key(ac.output, strings_id, request_context)

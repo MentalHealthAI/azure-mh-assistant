@@ -29,9 +29,12 @@ States[StateWaitForResponseBeforeVideo] = State(chat_input=chat_input_multiple_o
     ConditionedAction(condition=None, output="wrongInputBeforeVideo", next_state=StateWaitForResponseBeforeVideo, condition_description=None),
 ])
 
-States[StateShowVideo] = State(chat_input=ChatInputNotWait, conditioned_actions=[
-    ConditionedAction(condition=None, output="videoUrl", next_state=StateAskForDistressAfterVideo, condition_description=None)
-])
+def add_show_video_log_props(request_context: RequestContext, event: dict):
+    event["video_index"] = request_context.get_var(VariableVideoIndex)
+States[StateShowVideo] = State(
+    chat_input=ChatInputNotWait,
+    conditioned_actions=[ConditionedAction(condition=None, output="videoUrl", next_state=StateAskForDistressAfterVideo, condition_description=None)],
+    add_log_props=add_show_video_log_props)
 
 States[StateAskForDistressAfterVideo] = State(conditioned_actions=[
     ConditionedAction(condition=None, output="howMuchDistress", next_state=StateGetDistressAfterVideo, condition_description=None)

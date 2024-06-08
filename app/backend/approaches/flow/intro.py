@@ -3,8 +3,9 @@ import re
 from azure.data.tables import UpdateMode
 from urllib.parse import urlparse
 from urllib.parse import parse_qs
+from uuid import uuid4
 
-from approaches.flow.shared_states import ChatInputNotWait, ConditionedAction, DemoClientId, MissingClientId, PartitionKey, State, StateExit, States, StateStartIntro, StateStartPreperation, VariableClientId, VariableIsBotMale, VariableIsPatientMale, VariablePatientName, VariableShouldSaveClientStatus, VariableStringsId, chat_input_multiple_options, chat_input_numeric
+from approaches.flow.shared_states import ChatInputNotWait, ConditionedAction, DemoClientId, MissingClientId, PartitionKey, State, StateExit, States, StateStartIntro, StateStartPreperation, VariableClientId, VariableIsBotMale, VariableIsPatientMale, VariablePatientName, VariableSessionChatId, VariableShouldSaveClientStatus, VariableStringsId, chat_input_multiple_options, chat_input_numeric
 from approaches.localization.strings import get_strings_id
 from approaches.openai import OpenAI
 from approaches.requestcontext import RequestContext
@@ -47,6 +48,7 @@ async def before_start_intro(request_context: RequestContext, client_id: str):
     request_context.save_to_var(VariableClientId, client_id)
     request_context.save_to_var(VariableShouldSaveClientStatus, False)
     request_context.save_to_var(VariableStringsId, "he")
+    request_context.save_to_var(VariableSessionChatId, str(uuid4()))
 async def read_table(request_context: RequestContext, client_id: str):
     try:
         entity = await request_context.app_resources.table_client.get_entity(partition_key=PartitionKey, row_key=client_id)

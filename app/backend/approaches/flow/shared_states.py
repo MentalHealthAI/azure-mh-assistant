@@ -25,6 +25,7 @@ VariableIspPath = "ispPath"
 VariableIsUserExited = "isUserExited"
 VariablePatientName = "patientName"
 VariablePrevDistressLevel = "prevDistressLevel"
+VariableSessionChatId = "sessionChatId"
 VariableShouldSaveClientStatus = "shouldSaveClientStatus"
 VariableStringsId = "stringsId"
 VariableSumDistressLevel = "sumDistressLevel"
@@ -55,10 +56,11 @@ class ConditionedAction:
         self.custom_action = custom_action
 
 class State:
-    def __init__(self, conditioned_actions: list[ConditionedAction], chat_input = ChatInputFreeText, action_before: Callable = None):
+    def __init__(self, conditioned_actions: list[ConditionedAction], chat_input = ChatInputFreeText, action_before: Callable = None, add_log_props: Callable = None):
         self.chat_input = chat_input
         self.conditioned_actions = conditioned_actions,
         self.action_before = action_before
+        self.add_log_props = add_log_props
 
 def is_exit_after_distress_increased(request_context, input) -> bool:
     return (
