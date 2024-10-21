@@ -34,7 +34,6 @@ VariableWasDistressLevelIncreased = "wasDistressLevelIncreased"
 VariableWasDistressLevelIncreasedTwice = "wasDistressLevelIncreasedTwice"
 
 PartitionKey = "DefaultPartition"
-DemoClientId = "דמו"
 MissingClientId = "כניסה ללא זיהוי משתמש"
 
 ChatInputNotWait = "INTERNAL_PLACEHOLDER_NOT_WAIT"

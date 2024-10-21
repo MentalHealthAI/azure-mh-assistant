@@ -13,6 +13,12 @@ def how_much_distress(is_patient_male: bool):
         you = "אתה" if is_patient_male else "את",
         annoyed = "מוטרד" if is_patient_male else "מוטרדת")
 
+def how_much_distress_and_advance_video(request_context, is_patient_male: bool, is_bot_male: bool):
+    return [
+        get_video_message(request_context, is_patient_male, is_bot_male),
+        { "role": "assistant", "content": how_much_distress(is_patient_male) }
+    ]
+
 def no_distress_on_start(is_patient_male: bool):
     return "אני {understand} שאינך חווה מצוקה כרגע. האם {want} לסיים את התהליך כעת?".format(understand = "מבין" if is_patient_male else "מבינה", want = "תרצה" if is_patient_male else "תרצי")
 
@@ -48,13 +54,16 @@ def choose_annoying_reason_with_distress(is_patient_male: bool, is_bot_male: boo
 def wrong_annoying_reason(is_patient_male: bool):
     return "לא הבנתי את תשובתך. אנא {type} מספר בין 1 ל-5".format(type = "הקלד" if is_patient_male else "הקלידי")
 
-def start_exercise(text):
+def start_exercise(text, request_context, is_patient_male: bool, is_bot_male: bool):
     full_text_without_name = """{text}. בדקות הקרובות אנחה אותך בתרגול.
 
 אציג לך וידאו שילמד אותך לעשות תרגיל לייצוב מיידי.""".format(text = text)
     
     # Using similar logic for other variables requires updating FlowWriter logic to simulate this variable too
-    return lambda request_context: request_context.get_var(VariablePatientName) + ", " + full_text_without_name
+    return [
+        get_video_message(request_context, is_patient_male, is_bot_male),
+        { "role": "assistant" , "content": request_context.get_var(VariablePatientName) + ", " + full_text_without_name }
+    ]
 
 def wrong_input_before_video(is_patient_male: bool):
     return "לא הבנתי את תשובתך. אנא {type} לתרגל עם סרטון/לצאת".format(type = "הקלד" if is_patient_male else "הקלידי")
@@ -64,7 +73,19 @@ def get_video_message(request_context, is_patient_male: bool, is_bot_male: bool)
     isp_path = request_context.get_var(VariableIspPath)
     video_index = request_context.get_var(VariableVideoIndex)
     video_index_to_show = 0 if video_index == 0 else ((video_index - 1) % 3 + 1)
-    return [{"role": "vimeo", "content": get_video_url(isp_path, is_bot_male, is_patient_male, video_index_to_show)}]
+    return {"role": "vimeoSetUrl", "content": get_video_url(isp_path, is_bot_male, is_patient_male, video_index_to_show)}
+
+def start_exercise_1_danger(request_context, is_patient_male: bool, is_bot_male: bool):
+    return start_exercise("זו חוויה מאוד הגיונית שהרבה אנשים חווים. התרגול שנעשה כעת יוכל להקל עליך, הוא ידוע כתרגול שעזר לאנשים רבים", request_context, is_patient_male, is_bot_male)
+def start_exercise_2_accountability(request_context, is_patient_male: bool, is_bot_male: bool):
+    return start_exercise("מחשבות לגבי אחריות ואשמה נפוצות אחרי חשיפה לאירועים קשים ומאיימים. התרגול שנעשה יוכל להקל עליך", request_context, is_patient_male, is_bot_male)
+def start_exercise_3_self(request_context, is_patient_male: bool, is_bot_male: bool):
+    return start_exercise("לעתים לאחר אירוע מאיים, שבו חווינו חוסר שליטה, התחושה הזו ממשיכה ללוות אותנו לזמן מה. התרגול שנעשה כעת יוכל להקל עליך", request_context, is_patient_male, is_bot_male)
+def start_exercise_4_future(request_context, is_patient_male: bool, is_bot_male: bool):
+    return start_exercise("מחשבות לגבי חוסר שליטה לגבי מצבים קשים עתידיים נפוצות אחרי חשיפה לאירועים קשים ומאיימים. התרגול שנעשה כעת יוכל להקל עליך", request_context, is_patient_male, is_bot_male)
+def start_exercise_5_others(request_context, is_patient_male: bool, is_bot_male: bool):
+    return start_exercise("זו תחושה טבעית אחרי חשיפה לאירועים קשים ומאיימים. התרגול שנעשה כעת יוכל להקל עליך", request_context, is_patient_male, is_bot_male)
+
 
 def exit_after_distress_increased_twice(is_bot_male: bool):
     return """לאנשים שונים בזמנים שונים מתאימות התערבויות שונות. כיוון שאני {impressed} שקשה לך כעת אני {suggest} שנתקדם לקראת סיום התרגול.
@@ -192,11 +213,6 @@ he = {
     "whatIsYourName": "מה שמך?",
     "choosePatientGender": "איך לפנות אליך/אלייך?",
     "patientGenderInputWrong": "לא הבנתי את תשובתך. אנא הקלד/י נקבה/זכר?",
-    "startExercise1Danger": start_exercise("זו חוויה מאוד הגיונית שהרבה אנשים חווים. התרגול שנעשה כעת יוכל להקל עליך, הוא ידוע כתרגול שעזר לאנשים רבים"),
-    "startExercise2Accountability": start_exercise("מחשבות לגבי אחריות ואשמה נפוצות אחרי חשיפה לאירועים קשים ומאיימים. התרגול שנעשה יוכל להקל עליך"),
-    "startExercise3Self": start_exercise("לעתים לאחר אירוע מאיים, שבו חווינו חוסר שליטה, התחושה הזו ממשיכה ללוות אותנו לזמן מה. התרגול שנעשה כעת יוכל להקל עליך"),
-    "startExercise4Future": start_exercise("מחשבות לגבי חוסר שליטה לגבי מצבים קשים עתידיים נפוצות אחרי חשיפה לאירועים קשים ומאיימים. התרגול שנעשה כעת יוכל להקל עליך"),
-    "startExercise5Others": start_exercise("זו תחושה טבעית אחרי חשיפה לאירועים קשים ומאיימים. התרגול שנעשה כעת יוכל להקל עליך"),
     "genericExitText": """תודה שהתעניינת בכלי לסיוע עצמי במצבי מצוקה. 
 הרבה פעמים אחרי שחווים אירוע מאיים או קשה, או במצבים שחוששים מאירועים כאלה, חווים קושי או מצוקה. יש לך אפשרות לפנות לסיוע נפשי ולקבל כלים אחרים בגופים שונים כגון
 {contacts_text}""".format(contacts_text = contacts_text),

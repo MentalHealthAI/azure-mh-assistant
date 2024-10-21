@@ -33,11 +33,14 @@ def add_show_video_log_props(request_context: RequestContext, event: dict):
     event["video_index"] = request_context.get_var(VariableVideoIndex)
 States[StateShowVideo] = State(
     chat_input=ChatInputNotWait,
-    conditioned_actions=[ConditionedAction(condition=None, output="videoUrl", next_state=StateAskForDistressAfterVideo, condition_description=None)],
+    conditioned_actions=[ConditionedAction(condition=None, output="videoPlay", next_state=StateAskForDistressAfterVideo, condition_description=None)],
     add_log_props=add_show_video_log_props)
 
-States[StateAskForDistressAfterVideo] = State(conditioned_actions=[
-    ConditionedAction(condition=None, output="howMuchDistress", next_state=StateGetDistressAfterVideo, condition_description=None)
+async def advance_video(request_context: RequestContext, input: str):
+    video_index = request_context.get_var(VariableVideoIndex) + 1
+    request_context.save_to_var(VariableVideoIndex, video_index)
+States[StateAskForDistressAfterVideo] = State(action_before=advance_video, conditioned_actions=[
+    ConditionedAction(condition=None, output="howMuchDistressAndAdvanceVideo", next_state=StateGetDistressAfterVideo, condition_description=None)
 ])
 
 async def get_distress_level_after_video(request_context: RequestContext, input: str):
@@ -60,13 +63,13 @@ async def get_distress_level_after_video(request_context: RequestContext, input:
     request_context.save_to_var(VariableWasDistressLevelIncreasedTwice, False)
 
     video_index = request_context.get_var(VariableVideoIndex)
-    if video_index == 7:
+    if video_index == 8:
         request_context.save_to_var(VariableIsUserExited, False)
 States[StateGetDistressAfterVideo] = State(chat_input=chat_input_numeric(0, "0", 10, "10"), action_before=get_distress_level_after_video, conditioned_actions=[
     ConditionedAction(condition=lambda request_context, input: not (0 <= int(input) <= 10), output="wrongDistressLevel", next_state=StateGetDistressAfterVideo, condition_description="רמת המצוקה לא בין 0 ל-10"),
-    ConditionedAction(condition=lambda request_context, input: (request_context.get_var(VariableWasDistressLevelIncreasedTwice) or request_context.get_var(VariableVideoIndex) == 7) and request_context.get_var(VariableIspPath) == "1", output=None, next_state=StateStartPositiveCognition, condition_description="שתי החרפות או אחרי וידאו שמיני, מוקד מצוקה סכנה"),
+    ConditionedAction(condition=lambda request_context, input: (request_context.get_var(VariableWasDistressLevelIncreasedTwice) or request_context.get_var(VariableVideoIndex) == 8) and request_context.get_var(VariableIspPath) == "1", output=None, next_state=StateStartPositiveCognition, condition_description="שתי החרפות או אחרי וידאו שמיני, מוקד מצוקה סכנה"),
     ConditionedAction(condition=lambda request_context, input: request_context.get_var(VariableWasDistressLevelIncreasedTwice), output="exitAfterDistressIncreasedTwice", next_state=StateExit, condition_description="שתי החרפות, מוקד מצוקה אחר"),
-    ConditionedAction(condition=lambda request_context, input: request_context.get_var(VariableVideoIndex) == 7, output=None, next_state=StateChooseExitText, condition_description="אחרי וידאו שמיני"),
+    ConditionedAction(condition=lambda request_context, input: request_context.get_var(VariableVideoIndex) == 8, output=None, next_state=StateChooseExitText, condition_description="אחרי וידאו שמיני"),
     ConditionedAction(condition=lambda request_context, input: int(input) < request_context.get_var(VariablePrevDistressLevel), output="shouldContinueAfterImprovement", next_state=StateGetIfToContinueAfterVideo, condition_description="הייתה הטבה"),
     ConditionedAction(condition=lambda request_context, input: int(input) == request_context.get_var(VariablePrevDistressLevel), output="shouldContinueAfterNoChange", next_state=StateGetIfToContinueAfterVideo, condition_description="רמת מצוקה נשארה זהה"),
     ConditionedAction(condition=None, output="shouldContinueAfterDistressIncreased", next_state=StateGetIfToContinueAfterVideo, condition_description=None),
@@ -75,9 +78,6 @@ States[StateGetDistressAfterVideo] = State(chat_input=chat_input_numeric(0, "0",
 async def get_if_to_continue_after_video(request_context: RequestContext, input: str):
     user_continued = input.strip() in ("fi", "כן", "טוב", "מוכן", "מוכנה", "בסדר", "בטח", "סבבה", "למה לא", "לך על זה", "לכי על זה", "קדימה", "אני על זה")
     request_context.save_to_var(VariableIsUserExited, not user_continued)
-    if user_continued:
-        video_index = request_context.get_var(VariableVideoIndex) + 1
-        request_context.save_to_var(VariableVideoIndex, video_index)
 States[StateGetIfToContinueAfterVideo] = State(chat_input=chat_input_multiple_options(["לא", "כן"]), action_before=get_if_to_continue_after_video, conditioned_actions=[
     ConditionedAction(condition=lambda request_context, input: not request_context.get_var(VariableIsUserExited), output=None, next_state=StateShowVideo, condition_description="המשתמש\ת הקליד\ה 'כן'"),
     ConditionedAction(condition=lambda request_context, input: not (input.strip() in ("kt", "לא", "פחות", "ממש לא", "אין מצב", "די", "מספיק")), output="wrongInputYesNo", next_state=StateGetIfToContinueAfterVideo, condition_description="קלט לא חוקי"),
