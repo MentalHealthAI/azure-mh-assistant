@@ -61,13 +61,13 @@ const Chat: React.FC = ({}) => {
         question: string,
         clientRole: string,
         answers: { content: string; clientRole: string; responses: ChatAppResponse[] }[],
-        setAnswers: Function,
         responseBody: ReadableStream<any>
     ) => {
         let role: string;
         let answer: string = "";
         let responses: ChatAppResponse[] = [];
         let askResponse: ChatAppResponse = {} as ChatAppResponse;
+        let parsedChatInput: ChatInput | null = null;
 
         const createResponse = (contentAnswer: string): ChatAppResponse => {
             return {
@@ -96,7 +96,8 @@ const Chat: React.FC = ({}) => {
 
             for await (const event of readNDJSONStream(responseBody)) {
                 if (event["inputType"]) {
-                    setChatInput(event as ChatInput);
+                    parsedChatInput = event as ChatInput;
+                    setChatInput(parsedChatInput);
                 } else if (event["choices"] && event["choices"][0]["context"] && event["choices"][0]["context"]["data_points"]) {
                     event["choices"][0]["message"] = event["choices"][0]["delta"];
                     askResponse = event as ChatAppResponse;
@@ -136,10 +137,16 @@ const Chat: React.FC = ({}) => {
         } finally {
             setIsStreaming(false);
         }
-        return responses;
+        return { parsedResponse: responses, parsedChatInput };
     };
 
     const client = useLogin ? useMsal().instance : undefined;
+
+    const storagePrefixLastAnswer = "lastAnswerForClient_";
+    const storagePrefixChatInput = "chatInputForClient_";
+    const storagePrefixVideoUrl = "videoUrlForClient_";
+
+    const getClientId = (): string | null => new URLSearchParams(window.location.search).get("clientid");
 
     const makeApiRequest = async (question: string, clientRole: string) => {
         lastQuestionRef.current = question;
@@ -186,18 +193,34 @@ const Chat: React.FC = ({}) => {
             if (!response.body) {
                 throw Error("No response body");
             }
+
+            var lastAnswer: { content: string; clientRole: string; responses: ChatAppResponse[] };
+            var parsedChatInput: ChatInput | null = null;
+            const thinkingDelay = new Promise((resolve, reject) => setTimeout(resolve, 500));
             if (shouldStream) {
-                const thinkingDelay = new Promise((resolve, reject) => setTimeout(resolve, 500));
-                const parsedResponse: ChatAppResponse[] = await handleAsyncRequest(question, clientRole, answers, setAnswers, response.body);
-                await thinkingDelay;
-                setAnswers([...answers, { content: question, clientRole, responses: parsedResponse }]);
+                const answerAndChatInput = await handleAsyncRequest(question, clientRole, answers, response.body);
+                parsedChatInput = answerAndChatInput.parsedChatInput;
+                lastAnswer = { content: question, clientRole, responses: answerAndChatInput.parsedResponse };
             } else {
                 // This might not work since support of roled list in server response
                 const parsedResponse: ChatAppResponseOrError = await response.json();
                 if (response.status > 299 || !response.ok) {
                     throw Error(parsedResponse.error || "Unknown error");
                 }
-                setAnswers([...answers, { content: question, clientRole, responses: [parsedResponse as ChatAppResponse] }]);
+                lastAnswer = { content: question, clientRole, responses: [parsedResponse as ChatAppResponse] };
+            }
+
+            await thinkingDelay;
+            setAnswers([...answers, lastAnswer]);
+            if (chatInput.inputType == "disabled") {
+                // Clear storage on end
+                localStorage.removeItem(storagePrefixLastAnswer + getClientId());
+                localStorage.removeItem(storagePrefixChatInput + getClientId());
+                localStorage.removeItem(storagePrefixVideoUrl + getClientId());
+            } else if (lastAnswer.responses.length > 0) {
+                localStorage.setItem(storagePrefixLastAnswer + getClientId(), JSON.stringify(lastAnswer));
+                const chatInputToSave: ChatInput = { ...(parsedChatInput ? parsedChatInput : chatInput) };
+                localStorage.setItem(storagePrefixChatInput + getClientId(), JSON.stringify(chatInputToSave));
             }
         } catch (e) {
             setError(e);
@@ -209,6 +232,10 @@ const Chat: React.FC = ({}) => {
     const extractVimeoUrl = (answer: ChatAppResponse[]): string | undefined => {
         const vimeoSetUrlAnswer = answer.find(ans => ans.choices[0].message.role == "vimeoSetUrl");
         return vimeoSetUrlAnswer ? vimeoSetUrlAnswer.choices[0].message.content : undefined;
+    };
+
+    const isVideoPlayResponse = (answer: ChatAppResponse[]): boolean => {
+        return answer[answer.length - 1].choices[0].message.role == "vimeoPlay";
     };
 
     const shouldShowServerResponse = (answer: ChatAppResponse): boolean => {
@@ -233,8 +260,25 @@ const Chat: React.FC = ({}) => {
     useEffect(() => {
         if (isFirstRender) {
             setIsFirstRender(false);
-            const clientId = new URLSearchParams(window.location.search).get("clientid");
-            makeApiRequest(clientId == null || clientId == "" ? "כניסה ללא זיהוי משתמש" : clientId, "init");
+            const clientId = getClientId();
+            const lastAnswerJson = localStorage.getItem(storagePrefixLastAnswer + clientId);
+            if (lastAnswerJson) {
+                const lastAnswer = JSON.parse(lastAnswerJson);
+                setAnswers([lastAnswer]);
+                if (lastAnswer.responses && lastAnswer.responses.length > 0) {
+                    setIsPlayingVideo(isVideoPlayResponse(lastAnswer.responses));
+                }
+
+                const savedChatInput = localStorage.getItem(storagePrefixChatInput + clientId);
+                setChatInput(JSON.parse(savedChatInput!));
+
+                const savedVideoUrl = localStorage.getItem(storagePrefixVideoUrl + clientId);
+                if (savedVideoUrl) {
+                    setVideoUrl(savedVideoUrl);
+                }
+            } else {
+                makeApiRequest(clientId == null || clientId == "" ? "כניסה ללא זיהוי משתמש" : clientId, "init");
+            }
         }
     }, [isFirstRender]);
 
@@ -244,27 +288,30 @@ const Chat: React.FC = ({}) => {
         }
 
         const ans = isStreaming ? streamedAnswers : answers;
-        const lastAnswer = ans.length > 0 ? ans[ans.length - 1].responses : undefined;
-        const vimeoUrl = lastAnswer && lastAnswer.length > 0 ? extractVimeoUrl(lastAnswer) : undefined;
+        if (ans.length == 0) {
+            return;
+        }
+
+        const lastAnswer = ans[ans.length - 1].responses;
+        if (!lastAnswer || lastAnswer.length == 0) {
+            return;
+        }
+
+        const vimeoUrl = extractVimeoUrl(lastAnswer);
 
         if (vimeoUrl) {
             setVideoUrl(vimeoUrl);
         }
 
-        const lastRoledAnswer = lastAnswer && lastAnswer.length > 0 ? lastAnswer[lastAnswer.length - 1] : undefined;
-        if (lastRoledAnswer?.choices[0].message.role == "vimeoPlay") {
+        if (isVideoPlayResponse(lastAnswer)) {
             playerRef.current?.off("play", pauseVideoAfterLoaded);
             setIsPlayingVideo(true);
             playerRef.current?.play();
-            playerRef.current?.on("ended", () => {
-                makeApiRequest("הצפיה הסתיימה", "player");
-                setIsPlayingVideo(false);
-                playerRef.current?.destroy();
-            });
         }
     }, [isStreaming, streamedAnswers, answers, isLoading, isPlayingVideo]);
 
     useEffect(() => {
+        localStorage.setItem(storagePrefixVideoUrl + getClientId(), videoUrl);
         if (videoUrl != "") {
             playerRef.current = new Vimeo("playerElement", {
                 url: videoUrl,
@@ -276,8 +323,19 @@ const Chat: React.FC = ({}) => {
                 width: 1000
             });
             playerRef.current.on("play", pauseVideoAfterLoaded);
+            playerRef.current?.on("ended", () => {
+                makeApiRequest("הצפיה הסתיימה", "player");
+                setIsPlayingVideo(false);
+                playerRef.current?.destroy();
+            });
         }
     }, [videoUrl]);
+
+    useEffect(() => {
+        if (isPlayingVideo) {
+            playerRef.current?.off("play", pauseVideoAfterLoaded);
+        }
+    }, [isPlayingVideo, playerRef]);
 
     const onPromptTemplateChange = (_ev?: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>, newValue?: string) => {
         setPromptTemplate(newValue || "");
