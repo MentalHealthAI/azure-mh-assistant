@@ -37,7 +37,6 @@ const Chat: React.FC = ({}) => {
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [isWritingWords, setIsWritingWords] = useState<boolean>(false);
     const [isPlayingVideo, setIsPlayingVideo] = useState<boolean>(false);
-    const [videoUrl, setVideoUrl] = useState<string>("");
     const [isStreaming, setIsStreaming] = useState<boolean>(false);
     const [error, setError] = useState<unknown>();
     const [isFirstRender, setIsFirstRender] = useState<boolean>(true);
@@ -206,9 +205,8 @@ const Chat: React.FC = ({}) => {
         }
     };
 
-    const extractVimeoUrl = (answer: ChatAppResponse[]): string | undefined => {
-        const vimeoSetUrlAnswer = answer.find(ans => ans.choices[0].message.role == "vimeoSetUrl");
-        return vimeoSetUrlAnswer ? vimeoSetUrlAnswer.choices[0].message.content : undefined;
+    const extractVimeoUrl = (answer: ChatAppResponse): string | undefined => {
+        return answer.choices[0].message.role == "vimeo" ? answer.choices[0].message.content : undefined;
     };
 
     const shouldShowServerResponse = (answer: ChatAppResponse): boolean => {
@@ -218,13 +216,6 @@ const Chat: React.FC = ({}) => {
 
     const shouldShowClientMessage = (clientRole: string): boolean => {
         return clientRole == "user";
-    };
-
-    const pauseVideoAfterLoaded = (_: Vimeo.TimeEvent) => {
-        if (!isPlayingVideo) {
-            playerRef.current?.pause();
-        }
-        playerRef.current?.off("play", pauseVideoAfterLoaded);
     };
 
     useEffect(() => chatMessageStreamEnd.current?.scrollIntoView({ behavior: "smooth" }), [isLoading]);
@@ -245,39 +236,29 @@ const Chat: React.FC = ({}) => {
 
         const ans = isStreaming ? streamedAnswers : answers;
         const lastAnswer = ans.length > 0 ? ans[ans.length - 1].responses : undefined;
-        const vimeoUrl = lastAnswer && lastAnswer.length > 0 ? extractVimeoUrl(lastAnswer) : undefined;
-
-        if (vimeoUrl) {
-            setVideoUrl(vimeoUrl);
-        }
-
         const lastRoledAnswer = lastAnswer && lastAnswer.length > 0 ? lastAnswer[lastAnswer.length - 1] : undefined;
-        if (lastRoledAnswer?.choices[0].message.role == "vimeoPlay") {
-            playerRef.current?.off("play", pauseVideoAfterLoaded);
-            setIsPlayingVideo(true);
-            playerRef.current?.play();
-            playerRef.current?.on("ended", () => {
-                makeApiRequest("הצפיה הסתיימה", "player");
-                setIsPlayingVideo(false);
-                playerRef.current?.destroy();
-            });
+        const vimeoUrl = lastRoledAnswer ? extractVimeoUrl(lastRoledAnswer) : undefined;
+        if (!vimeoUrl) {
+            return;
         }
-    }, [isStreaming, streamedAnswers, answers, isLoading, isPlayingVideo]);
 
-    useEffect(() => {
-        if (videoUrl != "") {
-            playerRef.current = new Vimeo("playerElement", {
-                url: videoUrl,
-                autoplay: true,
-                controls: false,
-                dnt: true,
-                title: false,
-                playsinline: false,
-                width: 1000
-            });
-            playerRef.current.on("play", pauseVideoAfterLoaded);
-        }
-    }, [videoUrl]);
+        setIsPlayingVideo(true);
+        playerRef.current = new Vimeo("playerElement", {
+            url: vimeoUrl,
+            autoplay: true,
+            controls: false,
+            dnt: true,
+            title: false,
+            playsinline: false,
+            width: 1000
+        });
+
+        playerRef.current.on("ended", () => {
+            makeApiRequest("הצפיה הסתיימה", "player");
+            setIsPlayingVideo(false);
+            playerRef.current?.destroy();
+        });
+    }, [isStreaming, streamedAnswers, answers, isLoading, isPlayingVideo]);
 
     const onPromptTemplateChange = (_ev?: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>, newValue?: string) => {
         setPromptTemplate(newValue || "");

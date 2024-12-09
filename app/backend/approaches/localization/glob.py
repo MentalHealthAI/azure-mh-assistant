@@ -8,8 +8,4 @@ glob = {
         "role": "termsOfServicePage",
         "content": "none"
     }],
-    "videoPlay": [{
-        "role": "vimeoPlay",
-        "content": "none"
-    }],
 }

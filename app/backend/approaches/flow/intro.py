@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 from urllib.parse import parse_qs
 from uuid import uuid4
 
-from approaches.flow.shared_states import ChatInputNotWait, ConditionedAction, MissingClientId, PartitionKey, State, StateExit, States, StateStartIntro, StateStartPreperation, VariableClientId, VariableIsBotMale, VariableIsPatientMale, VariablePatientName, VariableSessionChatId, VariableShouldSaveClientStatus, VariableStringsId, chat_input_multiple_options, chat_input_numeric
+from approaches.flow.shared_states import ChatInputNotWait, ConditionedAction, DemoClientId, MissingClientId, PartitionKey, State, StateExit, States, StateStartIntro, StateStartPreperation, VariableClientId, VariableIsBotMale, VariableIsPatientMale, VariablePatientName, VariableSessionChatId, VariableShouldSaveClientStatus, VariableStringsId, chat_input_multiple_options, chat_input_numeric
 from approaches.localization.strings import get_strings_id
 from approaches.openai import OpenAI
 from approaches.requestcontext import RequestContext
@@ -16,7 +16,6 @@ StateCheckClientId = "CHECK_CLIENT_ID"
 StateUserAlreadyParticipated = "USER_ALREADY_PARTICIPATED"
 StateGetAge = "GET_AGE"
 StateGetIfToContinue = "GET_IF_TO_CONTINUE"
-StateGetIfToContinueDemo = "GET_IF_TO_CONTINUE_DEMO"
 StateGetTosAgreement = "GET_TOS_AGREEMENT"
 StateUpdateStatusStarted = "UPDATE_STATUS_STARTED"
 StateGetBotGender = "GET_BOT_GENDER"
@@ -58,12 +57,11 @@ async def read_table(request_context: RequestContext, client_id: str):
 
     if entity["Status"] == "new":
         return ConditionedAction(output="introPage", next_state=StateGetIfToContinue, condition=None, condition_description=None)
-    elif entity["Status"] == "demo":
-        return ConditionedAction(output="introPage", next_state=StateGetIfToContinueDemo, condition=None, condition_description=None)
 
     output = "participationDone" if entity["Status"] == "finished" else "participationCutInThePast" if entity["Status"] == "started" else "statusUnexpected"
     return ConditionedAction(output=output, next_state=StateExit, condition=None, condition_description=None)
 States[StateStartIntro] = State(chat_input=ChatInputNotWait, action_before=before_start_intro, conditioned_actions=[
+    ConditionedAction(condition=lambda request_context, input: input == DemoClientId, output="introPage", next_state=StateGetIfToContinue, condition_description="משתמש דמו"),
     ConditionedAction(condition=lambda request_context, input: input == MissingClientId, output="mustUserId", next_state=StateExit, condition_description="לא סופק זיהוי משתמש"),
     ConditionedAction(condition=None, output=None, next_state=StateGetIfToContinue, condition_description=None, custom_action=read_table)
 ])
@@ -72,12 +70,8 @@ async def raise_unexpected_tos(request_context, tos_agreement: str):
     raise Exception('Unexpected content for get_if_to_continue state.')
 States[StateGetIfToContinue] = State(conditioned_actions=[
     ConditionedAction(condition=lambda request_context, input: input.strip() != "go-to-tos", output=None, next_state=None, condition_description=None, custom_action=lambda request_context, input: raise_unexpected_tos),
+    ConditionedAction(condition=lambda request_context, input: request_context.get_var(VariableClientId) == DemoClientId, output="termsOfServicePage", next_state=StateGetTosAgreement, condition_description="משתמש\ת דמו הסכימ\ה לתנאי השימוש"),
     ConditionedAction(condition=None, output="termsOfServicePage", next_state=StateUpdateStatusStarted, condition_description="המשתמש\ת הסכימ\ה לתנאי השימוש"),
-])
-
-States[StateGetIfToContinueDemo] = State(conditioned_actions=[
-    ConditionedAction(condition=lambda request_context, input: input.strip() != "go-to-tos", output=None, next_state=None, condition_description=None, custom_action=lambda request_context, input: raise_unexpected_tos),
-    ConditionedAction(condition=None, output="termsOfServicePage", next_state=StateGetTosAgreement, condition_description="משתמש\ת דמו הסכימ\ה לתנאי השימוש"),
 ])
 
 async def update_status_started(request_context: RequestContext, tos_aggreement: str):
